@@ -7,7 +7,7 @@ Valuer aims at pricing a type of life insurance contract called variable annuity
 
 ### Example
 
-The following code prices a 10 years VA with GMAB guarantee by means of a pricing engine which models the underlying fund as a geometric Brownian motion. Please check the introductory [vignette](https://github.com/IvanZoccolan/valuer/blob/master/vignettes/Introduction.Rmd) for an explanation of this example and a description of the package structure.
+The following code prices a 10 years VA with GMAB guarantee by means of a pricing engine which models the underlying fund as a geometric Brownian motion. Please check the introductory [vignette](https://CRAN.R-project.org/package=valuer) for an explanation of this example and a description of the package structure.
 
 ``` r
 library(valuer)
@@ -59,15 +59,22 @@ volatility=vol, dividends=div)
 
 engine$do_static(the_gatherer, no_of_paths)
 the_gatherer$get_results()
-#>       mean        se
-#> 1 92.12345 0.9508671
+#>      mean       se
+#> 1 94.6241 1.155781
 ```
 
 ### Release status
 
-Valuer is currently on release 1.1.0
+[![CRAN\_Status\_Badge](http://www.r-pkg.org/badges/version/valuer)](https://cran.r-project.org/package=valuer)
+Valuer is currently on development release 1.1.1
 
 ### Installation
+
+Get valuer from CRAN:
+
+``` r
+install.packages("valuer")
+```
 
 Get the development release from GitHub:
 
