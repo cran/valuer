@@ -312,7 +312,6 @@ va_product <- R6::R6Class("va_product",
 #' See \bold{References} for a description of variable annuities life
 #' insurance products, their guarantees and fee structures.
 #' @docType class
-#' @useDynLib valuer
 #' @export
 #' @return Object of \code{\link{R6Class}}
 #' @format \code{\link{R6Class}} object.
@@ -476,12 +475,11 @@ GMAB <- R6::R6Class("GMAB", inherit = va_product,
 #' Variable Annuity with GMAB and GMDB guarantees
 #' @description
 #' Class for a VA with Guaranteed Minimum Accumulation Benefit (GMAB)
-#' and Guaranteed Minimun Accumulation Benefit (GMDB).
+#' and Guaranteed Minimum Accumulation Benefit (GMDB).
 #' It supports a simple state-dependent fee structure with a single barrier.\cr
 #' See \bold{References} for a description of variable annuities life
 #' insurance products, their guarantees and fee structures.
 #' @docType class
-#' @useDynLib valuer
 #' @export
 #' @return Object of \code{\link{R6Class}}
 #' @format \code{\link{R6Class}} object.
@@ -648,7 +646,6 @@ GMAB_GMDB <- R6::R6Class("GMAB_GMDB", inherit = GMAB,
 #' See \bold{References} for a description of variable annuities life
 #' insurance products, their guarantees and fee structures.
 #' @docType class
-#' @useDynLib valuer
 #' @export
 #' @return Object of \code{\link{R6Class}}
 #' @format \code{\link{R6Class}} object.

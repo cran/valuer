@@ -13,7 +13,7 @@ Object of \code{\link{R6Class}}
 }
 \description{
 Class for a VA with Guaranteed Minimum Accumulation Benefit (GMAB)
-and Guaranteed Minimun Accumulation Benefit (GMDB).
+and Guaranteed Minimum Accumulation Benefit (GMDB).
 It supports a simple state-dependent fee structure with a single barrier.\cr
 See \bold{References} for a description of variable annuities life
 insurance products, their guarantees and fee structures.
@@ -83,6 +83,7 @@ insurance products, their guarantees and fee structures.
   \item{\code{get_premium}}{Returns the premium as non negative scalar}
 }
 }
+
 \examples{
 #Sets up the payoff as a roll-up of premiums with roll-up rate 1\%
 
@@ -124,4 +125,3 @@ pp. 559-585.}}
 }
 }
 \keyword{datasets}
-

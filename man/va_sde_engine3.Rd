@@ -15,7 +15,7 @@ Object of \code{\link{R6Class}}
 Class providing a variable annuity pricing engine where the underlying
 reference fund is specified by an arbitrary system of stochastic
 differential equations. In contrast, the interest rates is constant and
-the intensity of mortality is determinitic and given by the Weibull
+the intensity of mortality is deterministic and given by the Weibull
 function.
 The fund paths are simulated by means of the
 \href{https://CRAN.R-project.org/package=yuima}{yuima} package. \cr
@@ -96,15 +96,15 @@ for \code{yuima}.
    the point estimates}
    \item{\code{npaths}}{\code{numeric} scalar with the number of MC
    simulations to run}
-   \item{\code{lower}}{\code{numeric} scalar with the fee corresponding
-   to  the lower end of the bisection interval}
-   \item{\code{upper}}{\code{numeric} scalar with the fee corresponding
-   to the upper end of the bisection interval}
+   \item{\code{lower}}{\code{numeric} scalar with the lower fee corresponding
+   to positive end of the bisection interval}
+   \item{\code{upper}}{\code{numeric} scalar with the upper fee corresponding
+   to the negative end of the bisection interval}
    \item{\code{mixed}}{\code{boolean} specifying if the mixed method has
    to be used. The default is \code{FALSE}}
    \item{\code{tol}}{\code{numeric} scalar with the tolerance of the
    bisection algorithm. Default is \code{1e-4}}
-   \item{\code{nmax}}{positive \code{integer} with the maximun number of
+   \item{\code{nmax}}{positive \code{integer} with the maximum number of
    iterations of the bisection algorithm}
    \item{\code{simulate}}{boolean specifying if financial and mortality
    paths should be simulated.}
@@ -112,6 +112,7 @@ for \code{yuima}.
  }
 }
 }
+
 \examples{
 #Sets up the payoff as a roll-up of premiums with roll-up rate 2\%
 
@@ -183,4 +184,3 @@ the_gatherer_2$get_results()
  }
 }
 \keyword{datasets}
-

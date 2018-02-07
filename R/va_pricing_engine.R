@@ -187,15 +187,15 @@
 #'    the point estimates}
 #'    \item{\code{npaths}}{\code{numeric} scalar with the number of MC
 #'    simulations to run}
-#'    \item{\code{lower}}{\code{numeric} scalar with the fee corresponding
-#'    to  the lower end of the bisection interval}
-#'    \item{\code{upper}}{\code{numeric} scalar with the fee corresponding
-#'    to the upper end of the bisection interval}
+#'    \item{\code{lower}}{\code{numeric} scalar with the lower fee corresponding
+#'    to positive end of the bisection interval}
+#'    \item{\code{upper}}{\code{numeric} scalar with the upper fee corresponding
+#'    to the negative end of the bisection interval}
 #'    \item{\code{mixed}}{\code{boolean} specifying if the mixed method has
 #'    to be used. The default is \code{FALSE}}
 #'    \item{\code{tol}}{\code{numeric} scalar with the tolerance of the
 #'    bisection algorithm. Default is \code{1e-4}}
-#'    \item{\code{nmax}}{positive \code{integer} with the maximun number of
+#'    \item{\code{nmax}}{positive \code{integer} with the maximum number of
 #'    iterations of the bisection algorithm}
 #'    \item{\code{simulate}}{boolean specifying if financial and mortality
 #'    paths should be simulated.}
@@ -406,8 +406,8 @@ va_engine <- R6::R6Class("va_engine",
     else stop(error_msg_1_("fee_gatherer", "data_gatherer"))
 
     if(!is_positive_integer(npaths)) stop(error_msg_4("npaths"))
-    if(!is_positive_scalar(lower)) stop(error_msg_7("lower"))
-    if(!is_positive_scalar(upper)) stop(error_msg_7("upper"))
+    if(!is_not_negative_scalar(lower)) stop(error_msg_7("lower"))
+    if(!is_positive_scalar(upper)) stop(error_msg_3_("upper"))
     if(upper <= lower) stop("Argument upper should be greater than lower")
     if(!is.logical(mixed)) stop("Argument mixed should be a logical")
     if(!is_between(tol, 0, 1)) stop(error_msg_8("tol"))
@@ -426,6 +426,8 @@ va_engine <- R6::R6Class("va_engine",
 
     old_value <- the_gatherer$get_results()[[1]]  - P
 
+    if(old_value < 0) stop("Please decrease lower\n")
+
     n <- 1
     while(n <= nmax){
      cat("#")
@@ -439,6 +441,9 @@ va_engine <- R6::R6Class("va_engine",
 
      current_value <- the_gatherer$get_results()[[1]] - P
      se <- the_gatherer$get_results()[[2]]
+     #Debug
+     cat("Old value: ", old_value, "\n")
+     cat("Current value", current_value, "\n")
 
      if(abs(current_value) <= se | (upper - lower) / 2 <= tol){
       cat("\nFair fee is", current)
@@ -562,15 +567,15 @@ va_engine <- R6::R6Class("va_engine",
 #'    the point estimates}
 #'    \item{\code{npaths}}{\code{numeric} scalar with the number of MC
 #'    simulations to run}
-#'    \item{\code{lower}}{\code{numeric} scalar with the fee corresponding
-#'    to  the lower end of the bisection interval}
-#'    \item{\code{upper}}{\code{numeric} scalar with the fee corresponding
-#'    to the upper end of the bisection interval}
+#'    \item{\code{lower}}{\code{numeric} scalar with the lower fee corresponding
+#'    to positive end of the bisection interval}
+#'    \item{\code{upper}}{\code{numeric} scalar with the upper fee corresponding
+#'    to the negative end of the bisection interval}
 #'    \item{\code{mixed}}{\code{boolean} specifying if the mixed method has
 #'    to be used. The default is \code{FALSE}}
 #'    \item{\code{tol}}{\code{numeric} scalar with the tolerance of the
 #'    bisection algorithm. Default is \code{1e-4}}
-#'    \item{\code{nmax}}{positive \code{integer} with the maximun number of
+#'    \item{\code{nmax}}{positive \code{integer} with the maximum number of
 #'    iterations of the bisection algorithm}
 #'   \item{\code{simulate}}{boolean specifying if financial and mortality
 #'    paths should be simulated.}
@@ -722,11 +727,12 @@ va_bs_engine <- R6::R6Class("va_bs_engine", inherit = va_engine,
     c2 <- private$mu_2
     t_yrs  <- head(private$the_product$times_in_yrs(), -1)
     #Deterministic intensity of mortality (Weibull)
-    mu <- (c1 ^ (-c2)) * c2 * ((age + t_yrs) ^ (c2 - 1))
-    #Integrals of the intensity of mortality
-    dt <- diff(t_yrs)
-    mu_ <- head(mu, -1)
-    mu_integrals <- cumsum(c(0, mu_ * dt))
+    integrand <- function(t) {
+      (c1 ^ (-c2)) * c2 * ((age + t) ^ (c2 - 1))
+    }
+    mu_integrals <- sapply(t_yrs, function(u) {
+      stats::integrate(integrand, 0, u)$value
+    })
     mu_integrals
   },
   death_time = function(i){

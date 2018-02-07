@@ -1,4 +1,4 @@
-#Copyright 2016 Ivan Zoccolan
+#Copyright 2017 Ivan Zoccolan
 
 #This file is part of valuer.
 
@@ -17,11 +17,12 @@
 #(in directory share/licenses).
 
 
-#' Variable Annuity  pricing engine with GBM and Makeham
+#' Variable Annuity  pricing engine with GBM and generic mortality
 #' @description
 #' Class providing a variable annuity pricing engine with the underlying
 #' reference risk neutral fund modeled as a Geometric Brownian Motion and the
-#' intensity of mortality  modeled by the Makeham intensity of mortality.
+#' intensity of mortality process specified by a generic SDE
+#' (stochastic mortality).
 #' The value of the VA contract is estimated by means of the Monte Carlo
 #' method if the policyholder cannot surrender (the so called "static"
 #' approach), and by means of Least Squares Monte Carlo in case the
@@ -42,17 +43,14 @@
 #'    \item{\code{product}}{\code{\link{va_product}} object}
 #'    \item{\code{interest}}{\code{\link{constant_parameters}} object
 #'    with the interest rate}
-#'    \item{\code{A}}{\code{numeric} scalar argument of the intensity
-#'    of mortality function \code{\link{makeham}}}
-#'    \item{\code{B}}{\code{numeric} scalar argument of the intensity
-#'    of mortality function \code{\link{makeham}}}
 #'    \item{\code{spot}}{\code{numeric} scalar with the initial fund price}
 #'    \item{\code{volatility}}{\code{\link{constant_parameters}} object with
 #'    the volatility}
 #'    \item{\code{dividends}}{\code{\link{constant_parameters}} object with
 #'    the dividend rate}
-#'    \item{\code{c}}{\code{numeric} scalar argument of the intensity
-#'    of mortality function \code{\link{makeham}}}
+#'    \item{\code{mortality_parms}}{A list of parameters
+#'    specifying the demographic processes.
+#'    See \code{\link{mortality_BMOP2011}} for an example.}
 #'   }
 #'  }
 #'  \item{\code{death_time}}{Returns the time of death index. If the
@@ -116,7 +114,7 @@
 #'    bisection algorithm. Default is \code{1e-4}}
 #'    \item{\code{nmax}}{positive \code{integer} with the maximum number of
 #'    iterations of the bisection algorithm}
-#'    \item{\code{simulate}}{boolean specifying if financial and mortality
+#'   \item{\code{simulate}}{boolean specifying if financial and mortality
 #'    paths should be simulated.}
 #'   }
 #'  }
@@ -131,6 +129,7 @@
   #'  In: Review of Financial studies 14 (2001), pp. 113-147}}
 #' }
 #'@examples
+#'\dontrun{
 #'#Sets up the payoff as a roll-up of premiums with roll-up rate 1%
 #'
 #'rate <- constant_parameters$new(0.01)
@@ -168,13 +167,13 @@
 #'#Gatherer for the MC point estimates
 #'the_gatherer <- mc_gatherer$new()
 #'#Number of paths to simulate
-#'no_of_paths <- 1e2
+#'no_of_paths <- 10
 #'
 #'#Sets up the pricing engine specifying the va_contract, the interest rate
-#'#the parameters of the Makeham intensity of mortality, the initial fund
+#'#the parameters of the Weibull intensity of mortality, the initial fund
 #'#value, the volatility and dividends rate
-#'engine <- va_mkh_engine$new(contract, r, A = 0.0001, B = 0.00035, spot,
-#'volatility = vol, dividends = div, c = 1.075)
+#'engine <- va_bs_engine2$new(contract, r, spot,
+#'volatility=vol, dividends=div, mortality_BMOP2011)
 #'
 #'#Estimates the contract value by means of the static approach.
 #'
@@ -190,42 +189,145 @@
 #'engine$do_mixed(the_gatherer_2, no_of_paths, degree = 3,
 #'freq = "3m", simulate = FALSE)
 #'the_gatherer_2$get_results()
+#'}
 
 
-va_mkh_engine <- R6::R6Class("va_mkh_engine", inherit = va_bs_engine,
+va_bs_engine2 <- R6::R6Class("va_bs_engine", inherit = va_bs_engine,
  public = list(
-  initialize = function(product, interest, A, B, spot, volatility, dividends, c){
+  initialize = function(product, interest, spot, volatility, dividends, mortality_parms, ...){
+   if(!missing(product))
+    if (inherits(product, "va_product")){
+     private$the_product <- product
+     private$times <- product$get_times()
+     private$no_time_intervals <- length(private$times) - 1
+     private$drifts <- numeric(private$no_time_intervals)
+     private$standard_deviations <- numeric(private$no_time_intervals)
+     private$variates <- numeric(private$no_time_intervals)
+    } else stop(error_msg_1_("product", "va_product"))
+   else stop(error_msg_1_("product", "va_product"))
 
-    ifelse(!missing(A),  c1 <- 0.0001, c1 <- A)
-    ifelse(!missing(B), c2 <- 0.00035, c2 <- B)
-    if(missing(c)) c <- 1.075
+   if(!missing(interest))
+    if(inherits(interest, "parameters")){
+     private$r <- interest
+    } else stop(error_msg_1_("interest", "parameters"))
+   else stop(error_msg_1_("interest", "parameters"))
 
-    super$initialize(product, interest, c1, c2, spot, volatility, dividends)
+   if(!missing(spot))
+    if (is_positive_scalar(spot)){
+     private$spot <- spot
+    } else stop(error_msg_3_("spot"))
+   else stop(error_msg_3_("spot"))
 
-    if(!missing(c))
-     if(is_positive_scalar(c))
-       private$mu_3 <- c
-     else stop(error_msg_5("c"))
-    else stop(error_msg_5("c"))
+   if(!missing(volatility) & !missing(dividends)){
+    if(inherits(volatility, "parameters") & inherits(dividends, "parameters")){
+     for(j in seq(private$no_time_intervals)){
+      this_variance <- volatility$integral_square(private$times[j],
+                                                  private$times[j+1])
+      drift <- interest$integral(private$times[j], private$times[j+1])
+      drift <- drift - dividends$integral(private$times[j], private$times[j+1])
+      private$drifts[j] <- drift - 0.5 * this_variance
+      private$standard_deviations[j] <- sqrt(this_variance)
+     }
+    } else stop(error_msg_2("parameters"))
+   } else stop(error_msg_2("parameters"))
 
+   private$mortality_parms <- mortality_parms
+   private$mortality_model <- do.call(yuima::setModel,
+                                       mortality_parms[[2]])
+   #
+   no_time_intervals <- length(private$the_product$get_times()) - 1
+   private$samp <- yuima::setSampling(
+    Terminal = tail(private$the_product$times_in_yrs(), 1),
+    n = no_time_intervals)
   },
   simulate_mortality_paths = function(npaths){
-   age <- private$the_product$get_age()
-   A <- private$mu_1
-   B <- private$mu_2
-   c <- private$mu_3
-   t_yrs  <- head(private$the_product$times_in_yrs(), -1)
-   #Makeham intensity of mortality
-   integrand <- function(x) {A + B * (c ^ (age + x))}
 
-   mu_integrals <- sapply(t_yrs, function(u) {
-     stats::integrate(integrand, 0, u)$value
-   })
-   mu_integrals
+    ind <- private$mortality_parms[[3]]
+    #Sets the arguments to call yuima::simulate
+    parms <- list(
+      object = private$mortality_model,
+      xinit = private$mortality_parms[[1]]$xinit,
+      sampling = private$samp,
+      true.parameter = private$mortality_parms[[1]]
+    )
+    #Sets up storage for the intensity of mortality
+    #and int of mort integrals paths
+    len <-  length(private$the_product$get_times())
+    private$mu <- matrix(NA, npaths, len)
+    private$mu_integrals <- matrix(NA, npaths, len)
+    dt <- private$samp@delta
+    #Sets up the intensity of mortality and
+    #calculates the integrals of the intensity of mortality
+    #Will use foreach to run the simulations in parallel
+    #Imported in NAMESPACE
+    #yuima::simulate
+    #yuima::get.zoo.data
+    if(requireNamespace("foreach", quietly = TRUE)){
+      loop <- foreach::foreach(iterators::icount(npaths))
+      data_paths <- foreach::`%dopar%`(loop, {
+        zoo_paths <- do.call(simulate, parms)
+        get.zoo.data(zoo_paths)
+      })
+      for(i in seq(npaths)){
+        private$mu[i, ] <- data_paths[[i]][[ind]]
+        mu_ <- head(private$mu[i, ], -1)
+        private$mu_integrals[i, ] <- cumsum(c(0, mu_ * dt))
+      }
+    } else for(i in seq(npaths)){
+      zoo_paths <- do.call(simulate, parms)
+      private$mu[i, ] <- get.zoo.data(zoo_paths)[[ind]]
+      mu_ <- head(private$mu[i, ], -1)
+      private$mu_integrals[i, ] <- cumsum(c(0, mu_ * dt))
+
+    }
+  },
+  death_time = function(i){
+    ind <- which(private$mu_integrals[i, ] > rexp(1))
+    if (length(ind) != 0)
+      res <- min(ind)
+    else res <- length(private$the_product$get_times()) + 1
+    res
   }
  ),
  private = list(
-  #Third parameter of the Makeham function
-  mu_3 = 1.075
+  mortality_model = "yuima.model-class",
+  #Stores the demographic parameters needed to
+  #set the model above by yuima::setModel and
+  #run yuima::simulate
+  mortality_parms ="list",
+  #Stores the times of a simulate path
+  samp = "yuima.sampling-class",
+  #Matrix to hold the simulated paths of the
+  #stochastic intensity of mortality
+  mu = "matrix",
+  #Matrix to hold the integrals of the simulated paths
+  #of stochastic intensity of mortality
+  mu_integrals = "matrix",
+  #Method to get Laguerre polynomials of state variables.
+  #Arguments are:
+  #paths - numeric vector of indexes of the paths to consider
+  #time - numeric scalar with the time index
+  #degree - positive scalar with the max degree of the Laguerre polynomials
+  bases = function(paths, time, degree){
+    #orthopolynom::laguerre.polynomials it's imported in NAMESPACE
+    #for performance reasons.
+    res <- laguerre.polynomials(degree, normalized = TRUE)
+    x <- private$fund[paths, time]
+    mu <- private$mu[paths, time]
+    #Normalizes to avoid underflows in calculating
+    #the exponential below.
+    x <- x / private$the_product$get_premium()
+
+    x <- sapply(seq_along(res), function(i){
+      exp(-0.5 * x) * (as.function(res[[i]])(x))
+    })
+    mu <- sapply(seq_along(res), function(i){
+      exp(-0.5 * mu) * (as.function(res[[i]])(mu))
+    })
+    cbind(x, mu)
+  }
  )
 )
+
+
+
